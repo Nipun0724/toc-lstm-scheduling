@@ -1,4 +1,3 @@
-#import"@preview/tablex:0.0.8": tablex, gridx, hlinex, vlinex, colspanx, rowspanx, cellx
 #set page(
   paper: "us-letter",
   margin: (x:1.8cm, y:1.6cm),
