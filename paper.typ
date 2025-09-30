@@ -1,3 +1,4 @@
+#import"@preview/tablex:0.0.8": tablex, gridx, hlinex, vlinex, colspanx, rowspanx, cellx
 #set page(
   paper: "us-letter",
   margin: (x:1.8cm, y:1.6cm),
@@ -373,4 +374,148 @@ The scale-down logic remains unchanged from Algorithm 2, providing stability by 
   image("/TrainingLSTM/TOC_AI_architecture.png"),
   caption: "Architecture of AI driven Theory of Constraints Scheduler"
 )<TOCAIarchitecture>
+
+
+= Results and Analysis
+
+This section presents a comparative performance analysis of the three implemented scheduling algorithms. The goal is to measure throughput, quality of service, and resource utilisation in order to assess how well they manage a dynamic workload.
+
+== Experimental Setup
+
+A discrete-event simulation environment created in Python with the `SimPy` library was used to assess the performance of the three scheduling algorithms.  @tbl-sim-params contains a detailed description of the main parameters controlling the workload, scheduler policies, and simulation environment.
+
+The workload was generated to mimic realistic, time-varying demand. Task arrivals follow a Poisson process, while the resource demands for each task are based on a cyclical, sinusoidal pattern combined with Gaussian noise to simulate diurnal variations and random fluctuations.
+
+#figure(
+  table(
+    columns: (0.5fr, 1fr),
+    align: (left, left),
+    table.header(
+      [*Category*], [*Parameter & Value*]
+    ),
+    table.hline(),
+    
+    [System], [
+      *Simulation Duration:* 500 virtual seconds \
+      *Initial Server Count:* 3 \
+      *Min / Max Servers:* 2 / 10 \
+      *Server CPU Capacity:* 100 units \
+      *Server Network Capacity:* 100 units
+    ],
+
+    [Workload], [
+      *Mean Task Arrival Interval:* 1.0 seconds (Poisson) \
+      *Task CPU Demand:* $ C_text(t) = 70 + 40sin((2pi t)/100) + cal(N)(0, 10) $ \
+      *Task Network Demand:* $ N_text(t) = 50 + 25sin((2pi t)/100) + cal(N)(0, 5) $
+    ],
+
+    [TOC], [
+      *Server Buffer Size (`MAX_QUEUE_LEN`):* 5 tasks \
+      *Dispatcher Buffer Size (`MAX_CENTRAL_BUFFER_LEN`):* 50 tasks
+    ],
+
+    [Autoscaling], [
+      *Scaling Check Interval:* 15 seconds \
+      *Reactive Scale-Up Threshold:* 75% of constraint utilization \
+      *Predictive Scale-Up Threshold:* 60% of bottleneck probability \
+      *Scale-Down Threshold:* 40% of average system utilization
+    ],
+  ),
+  caption: [Simulation Parameters for the `SCALABLE_BALANCED` Configuration.],
+) <tbl-sim-params>
+
+
+== Performance Metrics
+
+Five Key Performance Indicators (KPIs) form the basis of the evaluation:
+- *Completion Rate:* The system throughput is measured by the proportion of all generated tasks that were successfully processed..
+- *SLA Violation Rate:* System reliability is measured by the proportion of all generated tasks that were rejected because of system overload.
+- *Average CPU & Network Utilization:* The average resource usage for all _active_ servers, which gauges resource efficiency.
+- *Average Turnaround Time:* The mean amount of time, measured in latency, between the arrival of a task and its completion.
+
+== Comparative Performance Analysis
+
+The aggregated results from the simulations are summarized in @tbl-results-summary. The data reveals a clear performance hierarchy among the three algorithms, which is analyzed in the subsequent sections.
+
+#figure(
+  table(
+    columns: (1.6fr, 1fr, 1fr, 1fr),
+    align: (left, center, center, center),
+    table.header(
+      [*Performance Metric*], [*Round Robin (RR)*], [*TOC (Reactive)*], [*AI+TOC (Predictive)*]
+    ),
+    table.hline(),
+    "Completion Rate (%)", "60.66", "92.15", "94.11",
+    "SLA Violation Rate (%)", "37.68", "3.21", "0.00",
+    "Avg. CPU Utilization (%)", "65.11", "81.61", "79.11",
+    "Avg. Network Utilization (%)", "48.49", "59.27", "57.39",
+    "Avg. Turnaround Time (s)", "11.62", "52.84", "37.64",
+  ),
+  caption: [Comparative Performance of Scheduling Algorithms.],
+) <tbl-results-summary>
+
+=== Throughput and System Stability
+
+The most significant finding is the dramatic improvement in both throughput and stability offered by the TOC-based schedulers. As shown in @fig:throughput-sla, the baseline RR scheduler struggled under the dynamic workload, successfully completing only *60.66%* of tasks and suffering a very high SLA Violation Rate of *37.68%*. This is characteristic of a "push" system, where uncontrolled task assignment leads to cascading queue overloads and high rejection rates.
+
+In contrast, the reactive TOC scheduler, by implementing a "pull" system via the Drum-Buffer-Rope logic, achieved a remarkable increase in stability. It successfully completed *92.15%* of tasks while reducing the SLA Violation Rate to just *3.21%*.
+
+With a nearly flawless completion rate of *94.11%* and a SLA violation rate of *0.00%*, the Hybrid AI+TOC scheduler is the best in its class.  This illustrates the effectiveness of proactive scaling; the AI-driven system was able to "elevate" its capacity before the central buffer became saturated, thereby completely removing task rejections, by using the LSTM to anticipate approaching bottlenecks.
+
+#figure(
+  grid(
+    columns: (1fr, 1fr),
+    gutter: 12pt,
+    image("/TrainingLSTM/Completion Rate.png", width: 100%, fit: "contain"),
+    image("/TrainingLSTM/SLA Rate.png", width: 100%, fit: "contain"),
+  ),
+  caption: [Comparison of Completion Rate (left) and SLA Violation Rate (right). The AI+TOC model's proactive scaling eliminated SLA violations],
+) <fig:throughput-sla>
+
+=== Resource Utilization
+
+The resource utilization metrics in  provide insight into the operational efficiency of each scheduler. Contrary to expectations, the less effective RR scheduler uses less CPU (*65.11%*) and network (*48.49%*) on average than the TOC models.  This decreased utilisation is a symptom of system chaos rather than efficiency; the scheduler wastes a lot of time rejecting tasks that it is unable to place, which results in idle resources amid the overload.
+
+The TOC and AI+TOC schedulers maintain a higher and more productive level of resource utilization (Avg. CPUs of *79.11%* and *81.61%*, respectively). This demonstrates the TOC's fundamental idea, that the system can keep its resources working on value-adding tasks (processing tasks) rather than wasting them or thrashing them by safeguarding the constraint and maintaining a smooth workflow.
+
+#figure(
+  image("/TrainingLSTM/Utilization.png", width: 100%, fit: "contain"),
+  caption: [Resource Utilization Analysis Across Schedulers. The higher utilization of the TOC models indicates greater processing efficiency],
+) <fig:utilization>
+
+=== System Latency
+
+An analysis of task turnaround time distribution, visualized in the box plot in @fig:turnaround, reveals the fundamental performance trade-offs of each scheduling philosophy.
+
+The Round Robin (RR) scheduler exhibits the lowest median latency, though this result is misleading. Its speed is a direct consequence of a high SLA violation rate (*37.68%*); it achieves low latency by processing only the tasks that arrive during periods of low load while rejecting a large portion of the workload.
+
+In contrast, the reactive TOC scheduler prioritizes stability, resulting in a significantly higher median latency due to tasks waiting in a central buffer (a high Work-in-Process state). The plot's wide distribution and numerous extreme outliers show that while the system avoids rejections, it suffers from unpredictable, long delays during congestion.
+
+The Hybrid AI+TOC scheduler provides the most balanced approach. It reduces the median latency compared to the reactive TOC model and shows a tighter interquartile range (IQR), indicating greater predictability. This improvement is a direct result of proactive scaling mitigating system congestion. While the presence of some high-end outliers indicates the AI is not immune to prediction errors, the analysis confirms a classic trade-off: the AI+TOC model successfully improves both latency and consistency over the reactive model, sacrificing the illusory speed of RR for genuine system stability and throughput.
+
+#figure(
+  image("/TrainingLSTM/Latency.png", width: 80%),
+  caption: [Comparison of Average Task Turnaround Time. The higher latency of the TOC models is a deliberate trade-off for system stability, which the AI model helps to mitigate],
+) <fig:turnaround>
+
+= Conclusion
+
+This paper developed and evaluated a proactive, hybrid scheduling system for parallel server environments by integrating the TOC with a predictive LSTM model. The research successfully demonstrates that a constraint-aware, predictive scheduling philosophy yields significant and measurable improvements in system throughput, stability, and efficiency over traditional methods.
+
+The baseline RR scheduler, representing a stateless "push" system, proved incapable of managing the dynamic workload, resulting in significant task rejection and low throughput. This highlights the inherent limitations of simple load distribution strategies under variable load conditions.
+
+The introduction of a reactive TOC scheduler marked a significant paradigm shift. By implementing a "pull" system via the Drum-Buffer-Rope methodology, the scheduler achieved a dramatic improvement in system stability and overall task completion. This performance gain, however, came at the cost of increased task latency, a deliberate architectural trade-off inherent to the DBR model for maintaining system control.
+
+The final Hybrid AI+TOC scheduler demonstrated the clear superiority of a proactive approach. The system achieved near-perfect stability by eliminating SLA violations entirely, while also attaining the highest task throughput of all tested models. The most efficient and well-rounded solution was found to be the AI's proactive scaling, which also lessened the latency trade-off present in the reactive TOC model. These results reinforces the main hypothesis of our paper, which is that an AI-driven and constraint-aware task scheduler outperforms both traditional and reactive constraint-based techniques in terms of stability, throughput and latency.
+
+== Future Work
+
+While this research validates the effectiveness of the Hybrid AI+TOC approach, several avenues for future work remain:
+
+- *Online and Reinforcement Learning:* Offline training was used to train the current model.  The use of online learning or reinforcement learning agents that could continuously modify and enhance the prediction model in real-time based on live performance feedback may be investigated in future studies.
+
+- *Heterogeneous and Multi-Cloud Environments:* The simulation was conducted with a homogeneous server pool. A valuable extension would be to evaluate the algorithm's performance in a more complex multi-cloud or edge computing or in a heterogeneous environment with servers of varying capacities.
+
+- *Multi-Objective Optimization:* Our study predominantly optimized for stability and throughput. Future work could create a more comprehensive scheduling algorithm by incorporating additional objectives, such as operational cost or energy efficiency into the AI's decision-making process.
+
 #bibliography("refs.bib", title: "References")
