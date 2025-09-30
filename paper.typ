@@ -473,7 +473,7 @@ With a nearly flawless completion rate of *94.11%* and a SLA violation rate of *
 
 === Resource Utilization
 
-The resource utilization metrics in  provide insight into the operational efficiency of each scheduler. Contrary to expectations, the less effective RR scheduler uses less CPU (*65.11%*) and network (*48.49%*) on average than the TOC models.  This decreased utilisation is a symptom of system chaos rather than efficiency; the scheduler wastes a lot of time rejecting tasks that it is unable to place, which results in idle resources amid the overload.
+The resource utilization metrics in @fig:utilization provide insight into the operational efficiency of each scheduler. Contrary to expectations, the less effective RR scheduler uses less CPU (*65.11%*) and network (*48.49%*) on average than the TOC models.  This decreased utilisation is a symptom of system chaos rather than efficiency; the scheduler wastes a lot of time rejecting tasks that it is unable to place, which results in idle resources amid the overload.
 
 The TOC and AI+TOC schedulers maintain a higher and more productive level of resource utilization (Avg. CPUs of *79.11%* and *81.61%*, respectively). This demonstrates the TOC's fundamental idea, that the system can keep its resources working on value-adding tasks (processing tasks) rather than wasting them or thrashing them by safeguarding the constraint and maintaining a smooth workflow.
 
